@@ -1,0 +1,153 @@
+/* === Reset & Base === */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    min-height: 100vh;
+    color: #e0e0e0;
+    text-align: center;
+    padding: 2rem 1rem;
+}
+
+/* === ASCII Art Banner === */
+pre {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: clamp(0.45rem, 1.2vw, 0.85rem);
+    color: #e94560;
+    text-shadow: 0 0 10px rgba(233, 69, 96, 0.7);
+    white-space: pre;
+    overflow-x: auto;
+    margin: 1.5rem auto;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 8px;
+    border: 1px solid rgba(233, 69, 96, 0.2);
+    max-width: 900px;
+}
+
+/* === Container === */
+.container {
+    max-width: 860px;
+    margin: 0 auto;
+}
+
+/* === Typography === */
+h1 {
+    font-size: 2.2rem;
+    color: #e94560;
+    margin: 1.5rem 0 0.5rem;
+    text-shadow: 0 0 12px rgba(233, 69, 96, 0.5);
+    letter-spacing: 1px;
+}
+
+h2 {
+    font-size: 1.4rem;
+    color: #a8dadc;
+    margin: 1.8rem 0 0.8rem;
+    border-bottom: 2px solid rgba(168, 218, 220, 0.3);
+    padding-bottom: 0.4rem;
+}
+
+p {
+    font-size: 1.05rem;
+    line-height: 1.7;
+    margin: 0.6rem 0;
+    color: #ccd6f6;
+}
+
+p i {
+    color: #a8dadc;
+    font-style: italic;
+}
+
+/* === Lists === */
+ul {
+    list-style: none;
+    text-align: left;
+    display: inline-block;
+    margin: 0.5rem auto 1rem;
+    padding: 0;
+}
+
+li {
+    padding: 0.45rem 0.6rem 0.45rem 1.8rem;
+    position: relative;
+    font-size: 1rem;
+    color: #ccd6f6;
+    line-height: 1.6;
+}
+
+li::before {
+    content: '▸';
+    position: absolute;
+    left: 0.4rem;
+    color: #e94560;
+}
+
+strong {
+    color: #e94560;
+}
+
+/* === Divider === */
+hr {
+    border: none;
+    border-top: 1px solid rgba(168, 218, 220, 0.25);
+    margin: 1.8rem auto;
+    max-width: 600px;
+}
+
+/* === Buttons === */
+.btn-group {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin: 1.2rem 0;
+}
+
+a.btn {
+    display: inline-block;
+    text-decoration: none;
+    padding: 0.65rem 1.4rem;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+a.btn-primary {
+    background: #e94560;
+    color: #fff;
+    border: 2px solid #e94560;
+}
+
+a.btn-secondary {
+    background: transparent;
+    color: #a8dadc;
+    border: 2px solid #a8dadc;
+}
+
+a.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(233, 69, 96, 0.4);
+}
+
+/* === Hack Club Flag === */
+.flag {
+    width: min(220px, 60%);
+    margin: 1.5rem auto 0;
+    display: block;
+    opacity: 0.9;
+    filter: drop-shadow(0 4px 12px rgba(233, 69, 96, 0.4));
+    transition: opacity 0.2s ease;
+}
+
+.flag:hover {
+    opacity: 1;
+}
