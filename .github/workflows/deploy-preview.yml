@@ -1,7 +1,9 @@
-# Deploy PR contents into gh-pages/<short-id> when a PR is opened/updated
+# Deploy a snapshot of the PR contents into gh-pages/<short-id>
+# Runs automatically for PR events (uses pull_request_target so it does NOT require manual approval
+# and has permission to push to this repository). IMPORTANT: we do NOT execute any code from the PR.
 on:
-  pull_request:
-    types: [opened, reopened, synchronize]
+  pull_request_target:
+    types: [opened, reopened, ready_for_review, synchronize]
 
 permissions:
   contents: write
@@ -12,97 +14,98 @@ jobs:
   pr-deploy-to-gh-pages:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository (fetch all history)
+      - name: Get PR metadata (for logging)
+        run: |
+          echo "PR #${{ github.event.number }}"
+          echo "PR head repo: ${{ github.event.pull_request.head.repo.full_name }}"
+          echo "PR head sha: ${{ github.event.pull_request.head.sha }}"
+
+      - name: Checkout base repository (needed to push to gh-pages)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           persist-credentials: true
 
-      - name: Fetch and checkout PR head
+      - name: Fetch and check out PR head into safe branch (no PR code executed)
         shell: bash
         run: |
           set -euo pipefail
-          echo "Fetching pull request #${{ github.event.number }} head..."
-          # fetch the PR head into a local branch 'pr-head' and check it out
+          echo "Fetching PR head..."
+          # fetch PR head into a local branch and check it out
           git fetch origin +refs/pull/${{ github.event.number }}/head:pr-head
           git checkout pr-head
           echo "Checked out PR head: $(git rev-parse --short HEAD)"
 
-      - name: Create short id (5 chars) and export PR tree
+      - name: Export PR files (git archive -> deploy_tmp) and create short id
         id: export
         shell: bash
         run: |
           set -euo pipefail
-          # create a short id (5 hex chars) based on current epoch -> md5 -> first 5 chars
+          # short id: first 5 hex chars derived from current epoch (stable and short)
           SHORT=$(date +%s | md5sum | cut -c1-5)
           echo "short_id=$SHORT" >> "$GITHUB_OUTPUT"
 
           mkdir -p deploy_tmp
-          # Use git archive so we don't include .git
+          # export repository tree for the checked-out commit (no .git, no hooks executed)
           git archive --format=tar HEAD | tar -x -C deploy_tmp
           echo "Exported PR contents to deploy_tmp/"
 
-      - name: Switch to gh-pages branch (create if missing)
+      - name: Prepare gh-pages branch (create if missing)
         shell: bash
         run: |
           set -euo pipefail
-          # configure git identity for the commit
+          # Set commit identity for the action
           git config user.name "github-actions[bot]"
-          git confis[bot]@users.noreg user.email "github-actionply.github.com"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # If gh-pages exists remotely, fetch and checkout; otherwise create orphan branch
-          if git ls-remote --exit-code --heads origin gh-pages; then
+          # If gh-pages exists remotely, fetch and check it out; otherwise create an orphan branch
+          if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
             echo "gh-pages exists, checking out..."
             git fetch origin gh-pages:gh-pages
             git checkout gh-pages
           else
             echo "gh-pages does not exist, creating orphan gh-pages branch..."
             git checkout --orphan gh-pages
-            # Clear index and working tree for orphan branch
             git rm -rf --ignore-unmatch .
-            # create an initial commit if branch is empty
             git commit --allow-empty -m "Initialize gh-pages branch"
             git push origin gh-pages
           fi
 
-      - name: Add PR export to gh-pages/<short-id> and push
+      - name: Add snapshot to gh-pages/<short-id> and push
         shell: bash
         env:
           SHORT_ID: ${{ steps.export.outputs.short_id }}
         run: |
           set -euo pipefail
-          echo "Using SHORT_ID=${SHORT_ID}"
           DEST_DIR="${SHORT_ID}"
-          # create destination directory and copy exported files
+          echo "Creating destination dir: ${DEST_DIR}"
           mkdir -p "${DEST_DIR}"
-          # copy contents from deploy_tmp into the destination folder
-          # use rsync if available for correctness, fall back to cp
+          # copy exported files into destination folder
           if command -v rsync >/dev/null 2>&1; then
             rsync -a --exclude='.git' deploy_tmp/ "${DEST_DIR}/"
           else
             cp -R deploy_tmp/. "${DEST_DIR}/"
           fi
 
-          # Add and commit only the new folder (keeps history for other folders)
-          git add --force "${DEST_DIR}"
-          git commit -m "Add PR #${{ github.event.number }} snapshot: ${DEST_DIR} [ci skip]" || echo "No changes to commit"
-          echo "Pushing to origin gh-pages..."
-          git push origin gh-pages
+          # Add the new snapshot folder and push only if there are changes
+          git add --intent-to-add "${DEST_DIR}" || true
+          if git diff --cached --quiet; then
+            echo "No new changes to commit"
+          else
+            git commit -m "Add PR #${{ github.event.number }} snapshot: ${DEST_DIR} [ci skip]"
+            git push origin gh-pages
+          fi
 
-      - name: Configure GitHub Pages to serve gh-pages branch (optional)
+      - name: Optional: Attempt configure Pages to serve gh-pages (non-fatal)
         if: always()
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          # This attempts to set the Pages source to branch 'gh-pages' and path '/'
-          # It requires repo admin-like permission for the token. If it fails, it's non-fatal.
           repo="${{ github.repository }}"
-          echo "Attempting to configure Pages for ${repo} to branch gh-pages..."
-          api_url="https://api.github.com/repos/${repo}/pages"
           payload='{"source":{"branch":"gh-pages","path":"/"}}'
-          resp=$(curl -sS -X PUT -H "Accept: application/vnd.github+json" \
+          # This may fail if the token does not have the necessary admin scopes; we ignore failure.
+          curl -sS -X PUT -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer $GITHUB_TOKEN" \
-            "$api_url" -d "$payload" || true)
-          echo "Pages API response: $resp"
+            "https://api.github.com/repos/${repo}/pages" -d "${payload}" || true
